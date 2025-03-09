@@ -36,9 +36,7 @@ class WorkflowCategory(str, Enum, metaclass=MetaEnum):
 
 class WorkflowMeta(BaseModel):
     version: str = Field(description="The version of the workflow schema.")
-    category: WorkflowCategory = Field(
-        default=WorkflowCategory.User, description="The category of the workflow (user or default)."
-    )
+    category: WorkflowCategory = Field(description="The category of the workflow (user or default).")
 
     @field_validator("version")
     def validate_version(cls, version: str):
@@ -118,6 +116,15 @@ WorkflowRecordDTOValidator = TypeAdapter(WorkflowRecordDTO)
 class WorkflowRecordListItemDTO(WorkflowRecordDTOBase):
     description: str = Field(description="The description of the workflow.")
     category: WorkflowCategory = Field(description="The description of the workflow.")
+    tags: str = Field(description="The tags of the workflow.")
 
 
 WorkflowRecordListItemDTOValidator = TypeAdapter(WorkflowRecordListItemDTO)
+
+
+class WorkflowRecordWithThumbnailDTO(WorkflowRecordDTO):
+    thumbnail_url: str | None = Field(default=None, description="The URL of the workflow thumbnail.")
+
+
+class WorkflowRecordListItemWithThumbnailDTO(WorkflowRecordListItemDTO):
+    thumbnail_url: str | None = Field(default=None, description="The URL of the workflow thumbnail.")

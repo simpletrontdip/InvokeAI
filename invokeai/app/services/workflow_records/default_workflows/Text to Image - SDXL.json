@@ -1,10 +1,11 @@
 {
+  "id": "default_5e8b008d-c697-45d0-8883-085a954c6ace",
   "name": "Text to Image - SDXL",
   "author": "InvokeAI",
   "description": "Sample text to image workflow for SDXL",
   "version": "2.1.0",
   "contact": "invoke@invoke.ai",
-  "tags": "text2image, SDXL, default",
+  "tags": "text2image, SDXL, text to image",
   "notes": "",
   "exposedFields": [
     {

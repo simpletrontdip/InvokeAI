@@ -26,7 +26,8 @@ import { DynamicPromptsModal } from 'features/dynamicPrompts/components/DynamicP
 import DeleteBoardModal from 'features/gallery/components/Boards/DeleteBoardModal';
 import { ImageContextMenu } from 'features/gallery/components/ImageContextMenu/ImageContextMenu';
 import { useStarterModelsToast } from 'features/modelManagerV2/hooks/useStarterModelsToast';
-import { ShareWorkflowModal } from 'features/nodes/components/sidePanel/WorkflowListMenu/ShareWorkflowModal';
+import { ShareWorkflowModal } from 'features/nodes/components/sidePanel/workflow/WorkflowLibrary/ShareWorkflowModal';
+import { WorkflowLibraryModal } from 'features/nodes/components/sidePanel/workflow/WorkflowLibrary/WorkflowLibraryModal';
 import { CancelAllExceptCurrentQueueItemConfirmationAlertDialog } from 'features/queue/components/CancelAllExceptCurrentQueueItemConfirmationAlertDialog';
 import { ClearQueueConfirmationsAlertDialog } from 'features/queue/components/ClearQueueConfirmationAlertDialog';
 import { useReadinessWatcher } from 'features/queue/store/readiness';
@@ -39,7 +40,9 @@ import { selectLanguage } from 'features/system/store/systemSelectors';
 import { AppContent } from 'features/ui/components/AppContent';
 import { DeleteWorkflowDialog } from 'features/workflowLibrary/components/DeleteLibraryWorkflowConfirmationAlertDialog';
 import { LoadWorkflowConfirmationAlertDialog } from 'features/workflowLibrary/components/LoadWorkflowConfirmationAlertDialog';
+import { LoadWorkflowFromGraphModal } from 'features/workflowLibrary/components/LoadWorkflowFromGraphModal/LoadWorkflowFromGraphModal';
 import { NewWorkflowConfirmationAlertDialog } from 'features/workflowLibrary/components/NewWorkflowConfirmationAlertDialog';
+import { SaveWorkflowAsDialog } from 'features/workflowLibrary/components/SaveWorkflowAsDialog';
 import i18n from 'i18n';
 import { size } from 'lodash-es';
 import { memo, useCallback, useEffect } from 'react';
@@ -48,7 +51,6 @@ import { useGetOpenAPISchemaQuery } from 'services/api/endpoints/appInfo';
 import { useSocketIO } from 'services/events/useSocketIO';
 
 import AppErrorBoundaryFallback from './AppErrorBoundaryFallback';
-
 const DEFAULT_CONFIG = {};
 
 interface Props {
@@ -73,28 +75,7 @@ const App = ({ config = DEFAULT_CONFIG, studioInitAction }: Props) => {
         {!didStudioInit && <Loading />}
       </Box>
       <HookIsolator config={config} studioInitAction={studioInitAction} />
-      <DeleteImageModal />
-      <ChangeBoardModal />
-      <DynamicPromptsModal />
-      <StylePresetModal />
-      <CancelAllExceptCurrentQueueItemConfirmationAlertDialog />
-      <ClearQueueConfirmationsAlertDialog />
-      <NewWorkflowConfirmationAlertDialog />
-      <LoadWorkflowConfirmationAlertDialog />
-      <DeleteStylePresetDialog />
-      <DeleteWorkflowDialog />
-      <ShareWorkflowModal />
-      <RefreshAfterResetModal />
-      <DeleteBoardModal />
-      <GlobalImageHotkeys />
-      <NewGallerySessionDialog />
-      <NewCanvasSessionDialog />
-      <ImageContextMenu />
-      <FullscreenDropzone />
-      <VideosModal />
-      <CanvasManagerProviderGate>
-        <CanvasPasteModal />
-      </CanvasManagerProviderGate>
+      <ModalIsolator />
     </ErrorBoundary>
   );
 };
@@ -140,3 +121,36 @@ const HookIsolator = memo(
   }
 );
 HookIsolator.displayName = 'HookIsolator';
+
+const ModalIsolator = memo(() => {
+  return (
+    <>
+      <DeleteImageModal />
+      <ChangeBoardModal />
+      <DynamicPromptsModal />
+      <StylePresetModal />
+      <WorkflowLibraryModal />
+      <CancelAllExceptCurrentQueueItemConfirmationAlertDialog />
+      <ClearQueueConfirmationsAlertDialog />
+      <NewWorkflowConfirmationAlertDialog />
+      <LoadWorkflowConfirmationAlertDialog />
+      <DeleteStylePresetDialog />
+      <DeleteWorkflowDialog />
+      <ShareWorkflowModal />
+      <RefreshAfterResetModal />
+      <DeleteBoardModal />
+      <GlobalImageHotkeys />
+      <NewGallerySessionDialog />
+      <NewCanvasSessionDialog />
+      <ImageContextMenu />
+      <FullscreenDropzone />
+      <VideosModal />
+      <SaveWorkflowAsDialog />
+      <CanvasManagerProviderGate>
+        <CanvasPasteModal />
+      </CanvasManagerProviderGate>
+      <LoadWorkflowFromGraphModal />
+    </>
+  );
+});
+ModalIsolator.displayName = 'ModalIsolator';

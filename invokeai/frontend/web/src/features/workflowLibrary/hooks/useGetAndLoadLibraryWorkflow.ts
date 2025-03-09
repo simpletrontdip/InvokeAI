@@ -1,9 +1,8 @@
 import { useToast } from '@invoke-ai/ui-library';
-import { useAppDispatch } from 'app/store/storeHooks';
-import { workflowLoadRequested } from 'features/nodes/store/actions';
+import { useLoadWorkflow } from 'features/workflowLibrary/hooks/useLoadWorkflow';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLazyGetWorkflowQuery, workflowsApi } from 'services/api/endpoints/workflows';
+import { useLazyGetWorkflowQuery, useUpdateOpenedAtMutation, workflowsApi } from 'services/api/endpoints/workflows';
 
 type UseGetAndLoadLibraryWorkflowOptions = {
   onSuccess?: () => void;
@@ -18,16 +17,18 @@ type UseGetAndLoadLibraryWorkflowReturn = {
 type UseGetAndLoadLibraryWorkflow = (arg?: UseGetAndLoadLibraryWorkflowOptions) => UseGetAndLoadLibraryWorkflowReturn;
 
 export const useGetAndLoadLibraryWorkflow: UseGetAndLoadLibraryWorkflow = (arg) => {
-  const dispatch = useAppDispatch();
   const toast = useToast();
   const { t } = useTranslation();
-  const [_getAndLoadWorkflow, getAndLoadWorkflowResult] = useLazyGetWorkflowQuery();
+  const loadWorkflow = useLoadWorkflow();
+  const [getWorkflow, getAndLoadWorkflowResult] = useLazyGetWorkflowQuery();
+  const [updateOpenedAt] = useUpdateOpenedAtMutation();
   const getAndLoadWorkflow = useCallback(
     async (workflow_id: string) => {
       try {
-        const { workflow } = await _getAndLoadWorkflow(workflow_id).unwrap();
+        const { workflow } = await getWorkflow(workflow_id).unwrap();
         // This action expects a stringified workflow, instead of updating the routes and services we will just stringify it here
-        dispatch(workflowLoadRequested({ data: { workflow: JSON.stringify(workflow), graph: null }, asCopy: false }));
+        await loadWorkflow({ workflow: JSON.stringify(workflow), graph: null });
+        updateOpenedAt({ workflow_id });
         // No toast - the listener for this action does that after the workflow is loaded
         arg?.onSuccess && arg.onSuccess();
       } catch {
@@ -39,7 +40,7 @@ export const useGetAndLoadLibraryWorkflow: UseGetAndLoadLibraryWorkflow = (arg) 
         arg?.onError && arg.onError();
       }
     },
-    [_getAndLoadWorkflow, dispatch, arg, t, toast]
+    [getWorkflow, loadWorkflow, updateOpenedAt, arg, toast, t]
   );
 
   return { getAndLoadWorkflow, getAndLoadWorkflowResult };

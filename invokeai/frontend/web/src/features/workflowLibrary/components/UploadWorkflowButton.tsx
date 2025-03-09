@@ -1,24 +1,22 @@
-import { IconButton } from '@invoke-ai/ui-library';
-import { useWorkflowListMenu } from 'features/nodes/store/workflowListMenu';
+import { Button } from '@invoke-ai/ui-library';
+import { useWorkflowLibraryModal } from 'features/nodes/store/workflowLibraryModal';
+import { saveWorkflowAs } from 'features/workflowLibrary/components/SaveWorkflowAsDialog';
 import { useLoadWorkflowFromFile } from 'features/workflowLibrary/hooks/useLoadWorkflowFromFile';
 import { memo, useCallback, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useTranslation } from 'react-i18next';
 import { PiUploadSimpleBold } from 'react-icons/pi';
 
-import { useSaveWorkflowAsDialog } from './SaveWorkflowAsDialog/useSaveWorkflowAsDialog';
-
-const UploadWorkflowButton = () => {
+export const UploadWorkflowButton = memo(() => {
   const { t } = useTranslation();
   const resetRef = useRef<() => void>(null);
-  const workflowListMenu = useWorkflowListMenu();
-  const saveWorkflowAsDialog = useSaveWorkflowAsDialog();
+  const workflowLibraryModal = useWorkflowLibraryModal();
 
   const loadWorkflowFromFile = useLoadWorkflowFromFile({
     resetRef,
-    onSuccess: () => {
-      workflowListMenu.close();
-      saveWorkflowAsDialog.onOpen();
+    onSuccess: (workflow) => {
+      workflowLibraryModal.close();
+      saveWorkflowAs(workflow);
     },
   });
 
@@ -40,18 +38,13 @@ const UploadWorkflowButton = () => {
   });
   return (
     <>
-      <IconButton
-        aria-label={t('workflows.uploadAndSaveWorkflow')}
-        tooltip={t('workflows.uploadAndSaveWorkflow')}
-        icon={<PiUploadSimpleBold />}
-        {...getRootProps()}
-        pointerEvents="auto"
-        variant="ghost"
-      />
+      <Button leftIcon={<PiUploadSimpleBold />} {...getRootProps()} pointerEvents="auto" variant="ghost">
+        {t('workflows.uploadWorkflow')}
+      </Button>
 
       <input {...getInputProps()} />
     </>
   );
-};
+});
 
-export default memo(UploadWorkflowButton);
+UploadWorkflowButton.displayName = 'UploadWorkflowButton';

@@ -12,10 +12,16 @@ import { sentImageToCanvas } from 'features/gallery/store/actions';
 import { parseAndRecallAllMetadata } from 'features/metadata/util/handlers';
 import { $hasTemplates } from 'features/nodes/store/nodesSlice';
 import { $isWorkflowLibraryModalOpen } from 'features/nodes/store/workflowLibraryModal';
+import {
+  $workflowLibraryTagOptions,
+  workflowLibraryTagsReset,
+  workflowLibraryTagToggled,
+  workflowLibraryViewChanged,
+} from 'features/nodes/store/workflowLibrarySlice';
 import { $isStylePresetsMenuOpen, activeStylePresetIdChanged } from 'features/stylePresets/store/stylePresetSlice';
 import { toast } from 'features/toast/toast';
 import { activeTabCanvasRightPanelChanged, setActiveTab } from 'features/ui/store/uiSlice';
-import { useGetAndLoadLibraryWorkflow } from 'features/workflowLibrary/hooks/useGetAndLoadLibraryWorkflow';
+import { useLoadWorkflowWithDialog } from 'features/workflowLibrary/components/LoadWorkflowConfirmationAlertDialog';
 import { atom } from 'nanostores';
 import { useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -30,9 +36,17 @@ type SendToCanvasAction = _StudioInitAction<'sendToCanvas', { imageName: string 
 type UseAllParametersAction = _StudioInitAction<'useAllParameters', { imageName: string }>;
 type StudioDestinationAction = _StudioInitAction<
   'goToDestination',
-  { destination: 'generation' | 'canvas' | 'workflows' | 'upscaling' | 'viewAllWorkflows' | 'viewAllStylePresets' }
+  {
+    destination:
+      | 'generation'
+      | 'canvas'
+      | 'workflows'
+      | 'upscaling'
+      | 'viewAllWorkflows'
+      | 'viewAllWorkflowsRecommended'
+      | 'viewAllStylePresets';
+  }
 >;
-
 // Use global state to show loader until we are ready to render the studio.
 export const $didStudioInit = atom(false);
 
@@ -57,7 +71,8 @@ export const useStudioInitAction = (action?: StudioInitAction) => {
   const { t } = useTranslation();
   const didParseOpenAPISchema = useStore($hasTemplates);
   const store = useAppStore();
-  const { getAndLoadWorkflow } = useGetAndLoadLibraryWorkflow();
+  const loadWorkflowWithDialog = useLoadWorkflowWithDialog();
+  const workflowLibraryTagOptions = useStore($workflowLibraryTagOptions);
 
   const handleSendToCanvas = useCallback(
     async (imageName: string) => {
@@ -113,10 +128,15 @@ export const useStudioInitAction = (action?: StudioInitAction) => {
   const handleLoadWorkflow = useCallback(
     async (workflowId: string) => {
       // This shows a toast
-      await getAndLoadWorkflow(workflowId);
-      store.dispatch(setActiveTab('workflows'));
+      await loadWorkflowWithDialog({
+        type: 'library',
+        data: workflowId,
+        onSuccess: () => {
+          store.dispatch(setActiveTab('workflows'));
+        },
+      });
     },
-    [getAndLoadWorkflow, store]
+    [loadWorkflowWithDialog, store]
   );
 
   const handleSelectStylePreset = useCallback(
@@ -168,6 +188,18 @@ export const useStudioInitAction = (action?: StudioInitAction) => {
           store.dispatch(setActiveTab('workflows'));
           $isWorkflowLibraryModalOpen.set(true);
           break;
+        case 'viewAllWorkflowsRecommended':
+          // Go to the workflows tab and open the workflow library modal with the recommended workflows view
+          store.dispatch(setActiveTab('workflows'));
+          $isWorkflowLibraryModalOpen.set(true);
+          store.dispatch(workflowLibraryViewChanged('defaults'));
+          store.dispatch(workflowLibraryTagsReset());
+          for (const tag of workflowLibraryTagOptions) {
+            if (tag.recommended) {
+              store.dispatch(workflowLibraryTagToggled(tag.label));
+            }
+          }
+          break;
         case 'viewAllStylePresets':
           // Go to the canvas tab and open the style presets menu
           store.dispatch(setActiveTab('canvas'));
@@ -175,7 +207,7 @@ export const useStudioInitAction = (action?: StudioInitAction) => {
           break;
       }
     },
-    [store]
+    [store, workflowLibraryTagOptions]
   );
 
   const handleStudioInitAction = useCallback(

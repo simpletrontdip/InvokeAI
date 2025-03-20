@@ -24,7 +24,7 @@ import type { ImageDTO } from 'services/api/types';
 
 import type { FieldComponentProps } from './types';
 
-const overlayscrollbarsOptions = getOverlayScrollbarsParams().options;
+const overlayscrollbarsOptions = getOverlayScrollbarsParams({}).options;
 
 const sx = {
   borderWidth: 1,
@@ -82,14 +82,7 @@ export const ImageFieldCollectionInputComponent = memo(
         justifyContent="center"
       >
         {(!field.value || field.value.length === 0) && (
-          <UploadMultipleImageButton
-            w="full"
-            h="auto"
-            isError={isInvalid}
-            onUpload={onUpload}
-            fontSize={24}
-            variant="ghost"
-          />
+          <UploadMultipleImageButton w="full" h="auto" isError={isInvalid} onUpload={onUpload} fontSize={24} />
         )}
         {field.value && field.value.length > 0 && (
           <Box w="full" h="auto" p={1} sx={sx} data-error={isInvalid} borderRadius="base">

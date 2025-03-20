@@ -27,7 +27,7 @@ import { memo, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'use-debounce';
 
-const overlayscrollbarsOptions = getOverlayScrollbarsParams().options;
+const overlayscrollbarsOptions = getOverlayScrollbarsParams({}).options;
 
 export const IntegerGeneratorFieldInputComponent = memo(
   (props: FieldComponentProps<IntegerGeneratorFieldInputInstance, IntegerGeneratorFieldInputTemplate>) => {
@@ -82,7 +82,7 @@ export const IntegerGeneratorFieldInputComponent = memo(
     }, [debouncedField, t]);
 
     return (
-      <Flex flexDir="column" gap={2}>
+      <Flex flexDir="column" gap={2} flexGrow={1}>
         <Select
           className={`${NO_WHEEL_CLASS} ${NO_DRAG_CLASS}`}
           onChange={onChangeGeneratorType}

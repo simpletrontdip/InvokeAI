@@ -72,12 +72,18 @@ jobs:
       PIP_USE_PEP517: '1'
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        # https://github.com/nschloe/action-cached-lfs-checkout
+        uses: nschloe/action-cached-lfs-checkout@f46300cd8952454b9f0a21a3d133d4bd5684cfc2
 
       - name: check for changed python files
         if: ${{ inputs.always_run != true }}
         id: changed-files
-        uses: tj-actions/changed-files@v42
+        # Pinned to the _hash_ for v45.0.9 to prevent supply-chain attacks.
+        # See:
+        # - CVE-2025-30066
+        # - https://www.stepsecurity.io/blog/harden-runner-detection-tj-actions-changed-files-action-is-compromised
+        # - https://github.com/tj-actions/changed-files/issues/2463
+        uses: tj-actions/changed-files@a284dc1814e3fd07f2e34267fc8f81227ed29fb8
         with:
           files_yaml: |
             python:

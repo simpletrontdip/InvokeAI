@@ -113,7 +113,10 @@
         "saveChanges": "Salva modifiche",
         "error_withCount_one": "{{count}} errore",
         "error_withCount_many": "{{count}} errori",
-        "error_withCount_other": "{{count}} errori"
+        "error_withCount_other": "{{count}} errori",
+        "value": "Valore",
+        "label": "Etichetta",
+        "systemInformation": "Informazioni di sistema"
     },
     "gallery": {
         "galleryImageSize": "Dimensione dell'immagine",
@@ -713,7 +716,8 @@
             "collectionNumberLTMin": "{{value}} < {{minimum}} (incr min)",
             "collectionNumberGTExclusiveMax": "{{value}} >= {{exclusiveMaximum}} (excl max)",
             "collectionNumberLTExclusiveMin": "{{value}} <= {{exclusiveMinimum}} (excl min)",
-            "collectionEmpty": "raccolta vuota"
+            "collectionEmpty": "raccolta vuota",
+            "batchNodeCollectionSizeMismatchNoGroupId": "Dimensione della raccolta di gruppo nel Lotto non corrisponde"
         },
         "useCpuNoise": "Usa la CPU per generare rumore",
         "iterations": "Iterazioni",
@@ -779,7 +783,8 @@
         "enableModelDescriptions": "Abilita le descrizioni dei modelli nei menu a discesa",
         "modelDescriptionsDisabled": "Descrizioni dei modelli nei menu a discesa disabilitate",
         "modelDescriptionsDisabledDesc": "Le descrizioni dei modelli nei menu a discesa sono state disabilitate. Abilitale nelle Impostazioni.",
-        "showDetailedInvocationProgress": "Mostra dettagli avanzamento"
+        "showDetailedInvocationProgress": "Mostra dettagli avanzamento",
+        "enableHighlightFocusedRegions": "Evidenzia le regioni interessate"
     },
     "toast": {
         "uploadFailed": "Caricamento fallito",
@@ -847,7 +852,8 @@
         "pasteSuccess": "Incollato su {{destination}}",
         "unableToCopy": "Impossibile copiare",
         "unableToCopyDesc": "Il tuo browser non supporta l'accesso agli appunti. Gli utenti di Firefox potrebbero risolvere il problema seguendo ",
-        "unableToCopyDesc_theseSteps": "questi passaggi"
+        "unableToCopyDesc_theseSteps": "questi passaggi",
+        "fluxFillIncompatibleWithT2IAndI2I": "FLUX Fill non è compatibile con Testo a Immagine o Immagine a Immagine. Per queste attività, utilizzare altri modelli FLUX."
     },
     "accessibility": {
         "invokeProgressBar": "Barra di avanzamento generazione",
@@ -968,7 +974,6 @@
         "unableToGetWorkflowVersion": "Impossibile ottenere la versione dello schema del flusso di lavoro",
         "nodePack": "Pacchetto di nodi",
         "unableToExtractSchemaNameFromRef": "Impossibile estrarre il nome dello schema dal riferimento",
-        "unknownOutput": "Output sconosciuto: {{name}}",
         "unknownNodeType": "Tipo di nodo sconosciuto",
         "targetNodeDoesNotExist": "Connessione non valida: il nodo di destinazione/input {{node}} non esiste",
         "unknownFieldType": "$t(nodes.unknownField) tipo: {{type}}",
@@ -1038,7 +1043,11 @@
         "generatorImages_many": "{{count}} immagini",
         "generatorImages_other": "{{count}} immagini",
         "generatorImagesFromBoard": "Immagini dalla Bacheca",
-        "missingSourceOrTargetNode": "Nodo sorgente o di destinazione mancante"
+        "missingSourceOrTargetNode": "Nodo sorgente o di destinazione mancante",
+        "unknownField_withName": "Campo \"{{name}}\" sconosciuto",
+        "missingField_withName": "Campo \"{{name}}\" mancante",
+        "unknownFieldEditWorkflowToFix_withName": "Il flusso di lavoro contiene un campo \"{{name}}\" sconosciuto .\nModifica il flusso di lavoro per risolvere il problema.",
+        "unexpectedField_withName": "Campo \"{{name}}\" inaspettato"
     },
     "boards": {
         "autoAddBoard": "Aggiungi automaticamente bacheca",
@@ -1776,7 +1785,12 @@
             "text": "Testo",
             "numberInput": "Ingresso numerico",
             "containerRowLayout": "Contenitore (disposizione riga)",
-            "containerColumnLayout": "Contenitore (disposizione colonna)"
+            "containerColumnLayout": "Contenitore (disposizione colonna)",
+            "minimum": "Minimo",
+            "maximum": "Massimo",
+            "dropdown": "Elenco a discesa",
+            "addOption": "Aggiungi opzione",
+            "resetOptions": "Reimposta opzioni"
         },
         "loadMore": "Carica altro",
         "searchPlaceholder": "Cerca per nome, descrizione o etichetta",
@@ -1791,7 +1805,9 @@
         "private": "Privato",
         "deselectAll": "Deseleziona tutto",
         "noRecentWorkflows": "Nessun flusso di lavoro recente",
-        "view": "Visualizza"
+        "view": "Visualizza",
+        "recommended": "Consigliato per te",
+        "emptyStringPlaceholder": "<stringa vuota>"
     },
     "accordions": {
         "compositing": {
@@ -2235,7 +2251,8 @@
             "rgNegativePromptNotSupported": "Prompt negativo non supportato per il modello base selezionato",
             "ipAdapterIncompatibleBaseModel": "modello base dell'immagine di riferimento incompatibile",
             "ipAdapterNoImageSelected": "nessuna immagine di riferimento selezionata",
-            "rgAutoNegativeNotSupported": "Auto-Negativo non supportato per il modello base selezionato"
+            "rgAutoNegativeNotSupported": "Auto-Negativo non supportato per il modello base selezionato",
+            "fluxFillIncompatibleWithControlLoRA": "Il controllo LoRA non è compatibile con FLUX Fill"
         },
         "pasteTo": "Incolla su",
         "pasteToBboxDesc": "Nuovo livello (nel riquadro di delimitazione)",
@@ -2350,8 +2367,9 @@
         "watchRecentReleaseVideos": "Guarda i video su questa versione",
         "watchUiUpdatesOverview": "Guarda le novità dell'interfaccia",
         "items": [
-            "Gestione della memoria: nuova impostazione per gli utenti con GPU Nvidia per ridurre l'utilizzo della VRAM.",
-            "Prestazioni: continui miglioramenti alle prestazioni e alla reattività complessive dell'applicazione."
+            "Flussi di lavoro: supporto per menu a discesa di stringhe personalizzate nel Generatore di Flussi di lavoro.",
+            "FLUX: supporto per FLUX Fill in Flussi di lavoro e Tela.",
+            "LLaVA OneVision VLLM: supporto beta nei flussi di lavoro."
         ]
     },
     "system": {

@@ -21,6 +21,7 @@ Validation errors will raise an InvalidModelConfigException error.
 """
 
 # pyright: reportIncompatibleVariableOverride=false
+import json
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -29,151 +30,39 @@ from inspect import isabstract
 from pathlib import Path
 from typing import ClassVar, Literal, Optional, TypeAlias, Union
 
-import diffusers
-import onnxruntime as ort
-import safetensors.torch
-import torch
-from diffusers.models.modeling_utils import ModelMixin
-from picklescan.scanner import scan_file_path
 from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, TypeAdapter
 from typing_extensions import Annotated, Any, Dict
 
 from invokeai.app.util.misc import uuid_string
 from invokeai.backend.model_hash.hash_validator import validate_hash
-from invokeai.backend.model_hash.model_hash import HASHING_ALGORITHMS, ModelHash
-from invokeai.backend.quantization.gguf.loaders import gguf_sd_loader
-from invokeai.backend.raw_model import RawModel
+from invokeai.backend.model_hash.model_hash import HASHING_ALGORITHMS
+from invokeai.backend.model_manager.model_on_disk import ModelOnDisk
+from invokeai.backend.model_manager.taxonomy import (
+    AnyVariant,
+    BaseModelType,
+    ClipVariantType,
+    FluxLoRAFormat,
+    ModelFormat,
+    ModelRepoVariant,
+    ModelSourceType,
+    ModelType,
+    ModelVariantType,
+    SchedulerPredictionType,
+    SubModelType,
+)
+from invokeai.backend.model_manager.util.model_util import lora_token_vector_length
 from invokeai.backend.stable_diffusion.schedulers.schedulers import SCHEDULER_NAME_VALUES
-from invokeai.backend.util.silence_warnings import SilenceWarnings
 
 logger = logging.getLogger(__name__)
-
-# ModelMixin is the base class for all diffusers and transformers models
-# RawModel is the InvokeAI wrapper class for ip_adapters, loras, textual_inversion and onnx runtime
-AnyModel = Union[
-    ModelMixin, RawModel, torch.nn.Module, Dict[str, torch.Tensor], diffusers.DiffusionPipeline, ort.InferenceSession
-]
 
 
 class InvalidModelConfigException(Exception):
     """Exception for when config parser doesn't recognize this combination of model type and format."""
 
-
-class BaseModelType(str, Enum):
-    """Base model type."""
-
-    Any = "any"
-    StableDiffusion1 = "sd-1"
-    StableDiffusion2 = "sd-2"
-    StableDiffusion3 = "sd-3"
-    StableDiffusionXL = "sdxl"
-    StableDiffusionXLRefiner = "sdxl-refiner"
-    Flux = "flux"
-    # Kandinsky2_1 = "kandinsky-2.1"
-
-
-class ModelType(str, Enum):
-    """Model type."""
-
-    ONNX = "onnx"
-    Main = "main"
-    VAE = "vae"
-    LoRA = "lora"
-    ControlLoRa = "control_lora"
-    ControlNet = "controlnet"  # used by model_probe
-    TextualInversion = "embedding"
-    IPAdapter = "ip_adapter"
-    CLIPVision = "clip_vision"
-    CLIPEmbed = "clip_embed"
-    T2IAdapter = "t2i_adapter"
-    T5Encoder = "t5_encoder"
-    SpandrelImageToImage = "spandrel_image_to_image"
-    SigLIP = "siglip"
-    FluxRedux = "flux_redux"
-    LlavaOnevision = "llava_onevision"
-
-
-class SubModelType(str, Enum):
-    """Submodel type."""
-
-    UNet = "unet"
-    Transformer = "transformer"
-    TextEncoder = "text_encoder"
-    TextEncoder2 = "text_encoder_2"
-    TextEncoder3 = "text_encoder_3"
-    Tokenizer = "tokenizer"
-    Tokenizer2 = "tokenizer_2"
-    Tokenizer3 = "tokenizer_3"
-    VAE = "vae"
-    VAEDecoder = "vae_decoder"
-    VAEEncoder = "vae_encoder"
-    Scheduler = "scheduler"
-    SafetyChecker = "safety_checker"
-
-
-class ClipVariantType(str, Enum):
-    """Variant type."""
-
-    L = "large"
-    G = "gigantic"
-
-
-class ModelVariantType(str, Enum):
-    """Variant type."""
-
-    Normal = "normal"
-    Inpaint = "inpaint"
-    Depth = "depth"
-
-
-class ModelFormat(str, Enum):
-    """Storage format of model."""
-
-    Diffusers = "diffusers"
-    Checkpoint = "checkpoint"
-    LyCORIS = "lycoris"
-    ONNX = "onnx"
-    Olive = "olive"
-    EmbeddingFile = "embedding_file"
-    EmbeddingFolder = "embedding_folder"
-    InvokeAI = "invokeai"
-    T5Encoder = "t5_encoder"
-    BnbQuantizedLlmInt8b = "bnb_quantized_int8b"
-    BnbQuantizednf4b = "bnb_quantized_nf4b"
-    GGUFQuantized = "gguf_quantized"
-
-
-class SchedulerPredictionType(str, Enum):
-    """Scheduler prediction type."""
-
-    Epsilon = "epsilon"
-    VPrediction = "v_prediction"
-    Sample = "sample"
-
-
-class ModelRepoVariant(str, Enum):
-    """Various hugging face variants on the diffusers format."""
-
-    Default = ""  # model files without "fp16" or other qualifier
-    FP16 = "fp16"
-    FP32 = "fp32"
-    ONNX = "onnx"
-    OpenVINO = "openvino"
-    Flax = "flax"
-
-
-class ModelSourceType(str, Enum):
-    """Model source type."""
-
-    Path = "path"
-    Url = "url"
-    HFRepoID = "hf_repo_id"
+    pass
 
 
 DEFAULTS_PRECISION = Literal["fp16", "fp32"]
-
-
-AnyVariant: TypeAlias = Union[ModelVariantType, ClipVariantType, None]
 
 
 class SubmodelDefinition(BaseModel):
@@ -204,51 +93,6 @@ class ControlAdapterDefaultSettings(BaseModel):
     # This could be narrowed to controlnet processor nodes, but they change. Leaving this a string is safer.
     preprocessor: str | None
     model_config = ConfigDict(extra="forbid")
-
-
-class ModelOnDisk:
-    """A utility class representing a model stored on disk."""
-
-    def __init__(self, path: Path, hash_algo: HASHING_ALGORITHMS = "blake3_single"):
-        self.path = path
-        self.format_type = ModelFormat.Diffusers if path.is_dir() else ModelFormat.Checkpoint
-        if self.path.suffix in {".safetensors", ".bin", ".pt", ".ckpt"}:
-            self.name = path.stem
-        else:
-            self.name = path.name
-        self.hash_algo = hash_algo
-
-    def hash(self):
-        return ModelHash(algorithm=self.hash_algo).hash(self.path)
-
-    def size(self):
-        if self.format_type == ModelFormat.Checkpoint:
-            return self.path.stat().st_size
-        return sum(file.stat().st_size for file in self.path.rglob("*"))
-
-    def component_paths(self):
-        if self.format_type == ModelFormat.Checkpoint:
-            return {self.path}
-        extensions = {".safetensors", ".pt", ".pth", ".ckpt", ".bin", ".gguf"}
-        return {f for f in self.path.rglob("*") if f.suffix in extensions}
-
-    @staticmethod
-    def load_state_dict(path: Path):
-        with SilenceWarnings():
-            if path.suffix.endswith((".ckpt", ".pt", ".pth", ".bin")):
-                scan_result = scan_file_path(path)
-                if scan_result.infected_files != 0 or scan_result.scan_err:
-                    raise RuntimeError(f"The model {path.stem} is potentially infected by malware. Aborting import.")
-                checkpoint = torch.load(path, map_location="cpu")
-            elif path.suffix.endswith(".gguf"):
-                checkpoint = gguf_sd_loader(path, compute_dtype=torch.float32)
-            elif path.suffix.endswith(".safetensors"):
-                checkpoint = safetensors.torch.load_file(path)
-            else:
-                raise ValueError(f"Unrecognized model extension: {path.suffix}")
-
-        state_dict = checkpoint.get("state_dict", checkpoint)
-        return state_dict
 
 
 class MatchSpeed(int, Enum):
@@ -325,16 +169,18 @@ class ModelConfigBase(ABC, BaseModel):
         Created to deprecate ModelProbe.probe
         """
         candidates = ModelConfigBase._USING_CLASSIFY_API
-        sorted_by_match_speed = sorted(candidates, key=lambda cls: cls._MATCH_SPEED)
+        sorted_by_match_speed = sorted(candidates, key=lambda cls: (cls._MATCH_SPEED, cls.__name__))
         mod = ModelOnDisk(model_path, hash_algo)
 
         for config_cls in sorted_by_match_speed:
             try:
-                return config_cls.from_model_on_disk(mod, **overrides)
-            except InvalidModelConfigException:
-                logger.debug(f"ModelConfig '{config_cls.__name__}' failed to parse '{mod.path}', trying next config")
+                if not config_cls.matches(mod):
+                    continue
             except Exception as e:
-                logger.error(f"Unexpected exception while parsing '{config_cls.__name__}': {e}, trying next config")
+                logger.warning(f"Unexpected exception while matching {mod.name} to '{config_cls.__name__}': {e}")
+                continue
+            else:
+                return config_cls.from_model_on_disk(mod, **overrides)
 
         raise InvalidModelConfigException("No valid config found")
 
@@ -359,21 +205,43 @@ class ModelConfigBase(ABC, BaseModel):
         This doesn't need to be a perfect test - the aim is to eliminate unlikely matches quickly before parsing."""
         pass
 
+    @staticmethod
+    def cast_overrides(overrides: dict[str, Any]):
+        """Casts user overrides from str to Enum"""
+        if "type" in overrides:
+            overrides["type"] = ModelType(overrides["type"])
+
+        if "format" in overrides:
+            overrides["format"] = ModelFormat(overrides["format"])
+
+        if "base" in overrides:
+            overrides["base"] = BaseModelType(overrides["base"])
+
+        if "source_type" in overrides:
+            overrides["source_type"] = ModelSourceType(overrides["source_type"])
+
+        if "variant" in overrides:
+            overrides["variant"] = ModelVariantType(overrides["variant"])
+
     @classmethod
     def from_model_on_disk(cls, mod: ModelOnDisk, **overrides):
         """Creates an instance of this config or raises InvalidModelConfigException."""
-        if not cls.matches(mod):
-            raise InvalidModelConfigException(f"Path {mod.path} does not match {cls.__name__} format")
-
         fields = cls.parse(mod)
+        cls.cast_overrides(overrides)
+        fields.update(overrides)
+
+        type = fields.get("type") or cls.model_fields["type"].default
+        base = fields.get("base") or cls.model_fields["base"].default
 
         fields["path"] = mod.path.as_posix()
         fields["source"] = fields.get("source") or fields["path"]
         fields["source_type"] = fields.get("source_type") or ModelSourceType.Path
-        fields["name"] = mod.name
+        fields["name"] = name = fields.get("name") or mod.name
         fields["hash"] = fields.get("hash") or mod.hash()
+        fields["key"] = fields.get("key") or uuid_string()
+        fields["description"] = fields.get("description") or f"{base.value} {type.value} model {name}"
+        fields["repo_variant"] = fields.get("repo_variant") or mod.repo_variant()
 
-        fields.update(overrides)
         return cls(**fields)
 
 
@@ -414,6 +282,38 @@ class LoRAConfigBase(ABC, BaseModel):
     type: Literal[ModelType.LoRA] = ModelType.LoRA
     trigger_phrases: Optional[set[str]] = Field(description="Set of trigger phrases for this model", default=None)
 
+    @classmethod
+    def flux_lora_format(cls, mod: ModelOnDisk):
+        key = "FLUX_LORA_FORMAT"
+        if key in mod.cache:
+            return mod.cache[key]
+
+        from invokeai.backend.patches.lora_conversions.formats import flux_format_from_state_dict
+
+        sd = mod.load_state_dict(mod.path)
+        value = flux_format_from_state_dict(sd)
+        mod.cache[key] = value
+        return value
+
+    @classmethod
+    def base_model(cls, mod: ModelOnDisk) -> BaseModelType:
+        if cls.flux_lora_format(mod):
+            return BaseModelType.Flux
+
+        state_dict = mod.load_state_dict()
+        # If we've gotten here, we assume that the model is a Stable Diffusion model
+        token_vector_length = lora_token_vector_length(state_dict)
+        if token_vector_length == 768:
+            return BaseModelType.StableDiffusion1
+        elif token_vector_length == 1024:
+            return BaseModelType.StableDiffusion2
+        elif token_vector_length == 1280:
+            return BaseModelType.StableDiffusionXL  # recognizes format at https://civitai.com/models/224641
+        elif token_vector_length == 2048:
+            return BaseModelType.StableDiffusionXL
+        else:
+            raise InvalidModelConfigException("Unknown LoRA type")
+
 
 class T5EncoderConfigBase(ABC, BaseModel):
     """Base class for diffusers-style models."""
@@ -429,10 +329,39 @@ class T5EncoderBnbQuantizedLlmInt8bConfig(T5EncoderConfigBase, LegacyProbeMixin,
     format: Literal[ModelFormat.BnbQuantizedLlmInt8b] = ModelFormat.BnbQuantizedLlmInt8b
 
 
-class LoRALyCORISConfig(LoRAConfigBase, LegacyProbeMixin, ModelConfigBase):
+class LoRALyCORISConfig(LoRAConfigBase, ModelConfigBase):
     """Model config for LoRA/Lycoris models."""
 
     format: Literal[ModelFormat.LyCORIS] = ModelFormat.LyCORIS
+
+    @classmethod
+    def matches(cls, mod: ModelOnDisk) -> bool:
+        if mod.path.is_dir():
+            return False
+
+        # Avoid false positive match against ControlLoRA and Diffusers
+        if cls.flux_lora_format(mod) in [FluxLoRAFormat.Control, FluxLoRAFormat.Diffusers]:
+            return False
+
+        state_dict = mod.load_state_dict()
+        for key in state_dict.keys():
+            if type(key) is int:
+                continue
+
+            if key.startswith(("lora_te_", "lora_unet_", "lora_te1_", "lora_te2_", "lora_transformer_")):
+                return True
+            # "lora_A.weight" and "lora_B.weight" are associated with models in PEFT format. We don't support all PEFT
+            # LoRA models, but as of the time of writing, we support Diffusers FLUX PEFT LoRA models.
+            if key.endswith(("to_k_lora.up.weight", "to_q_lora.down.weight", "lora_A.weight", "lora_B.weight")):
+                return True
+
+        return False
+
+    @classmethod
+    def parse(cls, mod: ModelOnDisk) -> dict[str, Any]:
+        return {
+            "base": cls.base_model(mod),
+        }
 
 
 class ControlAdapterConfigBase(ABC, BaseModel):
@@ -457,10 +386,25 @@ class ControlLoRADiffusersConfig(ControlAdapterConfigBase, LegacyProbeMixin, Mod
     format: Literal[ModelFormat.Diffusers] = ModelFormat.Diffusers
 
 
-class LoRADiffusersConfig(LoRAConfigBase, LegacyProbeMixin, ModelConfigBase):
+class LoRADiffusersConfig(LoRAConfigBase, ModelConfigBase):
     """Model config for LoRA/Diffusers models."""
 
     format: Literal[ModelFormat.Diffusers] = ModelFormat.Diffusers
+
+    @classmethod
+    def matches(cls, mod: ModelOnDisk) -> bool:
+        if mod.path.is_file():
+            return cls.flux_lora_format(mod) == FluxLoRAFormat.Diffusers
+
+        suffixes = ["bin", "safetensors"]
+        weight_files = [mod.path / f"pytorch_lora_weights.{sfx}" for sfx in suffixes]
+        return any(wf.exists() for wf in weight_files)
+
+    @classmethod
+    def parse(cls, mod: ModelOnDisk) -> dict[str, Any]:
+        return {
+            "base": cls.base_model(mod),
+        }
 
 
 class VAECheckpointConfig(CheckpointConfigBase, LegacyProbeMixin, ModelConfigBase):
@@ -625,11 +569,33 @@ class FluxReduxConfig(LegacyProbeMixin, ModelConfigBase):
     format: Literal[ModelFormat.Checkpoint] = ModelFormat.Checkpoint
 
 
-class LlavaOnevisionConfig(DiffusersConfigBase, LegacyProbeMixin, ModelConfigBase):
+class LlavaOnevisionConfig(DiffusersConfigBase, ModelConfigBase):
     """Model config for Llava Onevision models."""
 
     type: Literal[ModelType.LlavaOnevision] = ModelType.LlavaOnevision
     format: Literal[ModelFormat.Diffusers] = ModelFormat.Diffusers
+
+    @classmethod
+    def matches(cls, mod: ModelOnDisk) -> bool:
+        if mod.path.is_file():
+            return False
+
+        config_path = mod.path / "config.json"
+        try:
+            with open(config_path, "r") as file:
+                config = json.load(file)
+        except FileNotFoundError:
+            return False
+
+        architectures = config.get("architectures")
+        return architectures and architectures[0] == "LlavaOnevisionForConditionalGeneration"
+
+    @classmethod
+    def parse(cls, mod: ModelOnDisk) -> dict[str, Any]:
+        return {
+            "base": BaseModelType.Any,
+            "variant": ModelVariantType.Normal,
+        }
 
 
 def get_model_discriminator_value(v: Any) -> str:

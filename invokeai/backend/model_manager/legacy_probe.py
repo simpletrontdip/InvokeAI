@@ -14,27 +14,30 @@ from invokeai.backend.flux.controlnet.state_dict_utils import (
     is_state_dict_instantx_controlnet,
     is_state_dict_xlabs_controlnet,
 )
+from invokeai.backend.flux.flux_state_dict_utils import get_flux_in_channels_from_state_dict
 from invokeai.backend.flux.ip_adapter.state_dict_utils import is_state_dict_xlabs_ip_adapter
 from invokeai.backend.flux.redux.flux_redux_state_dict_utils import is_state_dict_likely_flux_redux
 from invokeai.backend.model_hash.model_hash import HASHING_ALGORITHMS, ModelHash
 from invokeai.backend.model_manager.config import (
     AnyModelConfig,
-    AnyVariant,
-    BaseModelType,
     ControlAdapterDefaultSettings,
     InvalidModelConfigException,
     MainModelDefaultSettings,
     ModelConfigFactory,
+    SubmodelDefinition,
+)
+from invokeai.backend.model_manager.load.model_loaders.generic_diffusers import ConfigLoader
+from invokeai.backend.model_manager.taxonomy import (
+    AnyVariant,
+    BaseModelType,
     ModelFormat,
     ModelRepoVariant,
     ModelSourceType,
     ModelType,
     ModelVariantType,
     SchedulerPredictionType,
-    SubmodelDefinition,
     SubModelType,
 )
-from invokeai.backend.model_manager.load.model_loaders.generic_diffusers import ConfigLoader
 from invokeai.backend.model_manager.util.model_util import (
     get_clip_variant_type,
     lora_token_vector_length,
@@ -562,15 +565,28 @@ class CheckpointProbeBase(ProbeBase):
         state_dict = self.checkpoint.get("state_dict") or self.checkpoint
 
         if base_type == BaseModelType.Flux:
-            in_channels = state_dict["img_in.weight"].shape[1]
-            if in_channels == 64:
+            in_channels = get_flux_in_channels_from_state_dict(state_dict)
+
+            if in_channels is None:
+                # If we cannot find the in_channels, we assume that this is a normal variant. Log a warning.
+                logger.warning(
+                    f"{self.model_path} does not have img_in.weight or model.diffusion_model.img_in.weight key. Assuming normal variant."
+                )
                 return ModelVariantType.Normal
-            elif in_channels == 384:
+
+            # FLUX Model variant types are distinguished by input channels:
+            # - Unquantized Dev and Schnell have in_channels=64
+            # - BNB-NF4 Dev and Schnell have in_channels=1
+            # - FLUX Fill has in_channels=384
+            # - Unsure of quantized FLUX Fill models
+            # - Unsure of GGUF-quantized models
+            if in_channels == 384:
+                # This is a FLUX Fill model. FLUX Fill needs special handling throughout the application. The variant
+                # type is used to determine whether to use the fill model or the base model.
                 return ModelVariantType.Inpaint
             else:
-                raise InvalidModelConfigException(
-                    f"Unexpected in_channels (in_channels={in_channels}) for FLUX model at {self.model_path}."
-                )
+                # Fall back on "normal" variant type for all other FLUX models.
+                return ModelVariantType.Normal
 
         in_channels = state_dict["model.diffusion_model.input_blocks.0.0.weight"].shape[1]
         if in_channels == 9:

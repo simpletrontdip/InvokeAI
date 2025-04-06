@@ -22,6 +22,7 @@ import {
 import type { DynamicPromptsState } from 'features/dynamicPrompts/store/dynamicPromptsSlice';
 import { selectDynamicPromptsSlice } from 'features/dynamicPrompts/store/dynamicPromptsSlice';
 import { getShouldProcessPrompt } from 'features/dynamicPrompts/util/getShouldProcessPrompt';
+import { $isInPublishFlow } from 'features/nodes/components/sidePanel/workflow/publish';
 import { $templates } from 'features/nodes/store/nodesSlice';
 import { selectNodesSlice } from 'features/nodes/store/selectors';
 import type { NodesState, Templates } from 'features/nodes/store/types';
@@ -39,6 +40,8 @@ import i18n from 'i18next';
 import { debounce, groupBy, upperFirst } from 'lodash-es';
 import { atom, computed } from 'nanostores';
 import { useEffect } from 'react';
+import { selectMainModelConfig } from 'services/api/endpoints/models';
+import type { MainModelConfig } from 'services/api/types';
 import { $isConnected } from 'services/events/stores';
 
 /**
@@ -82,11 +85,14 @@ const debouncedUpdateReasons = debounce(
     templates: Templates,
     upscale: UpscaleState,
     config: AppConfig,
-    store: AppStore
+    store: AppStore,
+    isInPublishFlow: boolean
   ) => {
     if (tab === 'canvas') {
+      const model = selectMainModelConfig(store.getState());
       const reasons = await getReasonsWhyCannotEnqueueCanvasTab({
         isConnected,
+        model,
         canvas,
         params,
         dynamicPrompts,
@@ -104,6 +110,7 @@ const debouncedUpdateReasons = debounce(
         workflowSettingsState: workflowSettings,
         isConnected,
         templates,
+        isInPublishFlow,
       });
       $reasonsWhyCannotEnqueue.set(reasons);
     } else if (tab === 'upscaling') {
@@ -140,6 +147,7 @@ export const useReadinessWatcher = () => {
   const canvasIsRasterizing = useStore(canvasManager?.stateApi.$isRasterizing ?? $true);
   const canvasIsSelectingObject = useStore(canvasManager?.stateApi.$isSegmenting ?? $true);
   const canvasIsCompositing = useStore(canvasManager?.compositor.$isBusy ?? $true);
+  const isInPublishFlow = useStore($isInPublishFlow);
 
   useEffect(() => {
     debouncedUpdateReasons(
@@ -158,7 +166,8 @@ export const useReadinessWatcher = () => {
       templates,
       upscale,
       config,
-      store
+      store,
+      isInPublishFlow
     );
   }, [
     store,
@@ -177,6 +186,7 @@ export const useReadinessWatcher = () => {
     templates,
     upscale,
     workflowSettings,
+    isInPublishFlow,
   ]);
 };
 
@@ -188,15 +198,16 @@ const getReasonsWhyCannotEnqueueWorkflowsTab = async (arg: {
   workflowSettingsState: WorkflowSettingsState;
   isConnected: boolean;
   templates: Templates;
+  isInPublishFlow: boolean;
 }): Promise<Reason[]> => {
-  const { dispatch, nodesState, workflowSettingsState, isConnected, templates } = arg;
+  const { dispatch, nodesState, workflowSettingsState, isConnected, templates, isInPublishFlow } = arg;
   const reasons: Reason[] = [];
 
   if (!isConnected) {
     reasons.push(disconnectedReason(i18n.t));
   }
 
-  if (workflowSettingsState.shouldValidateGraph) {
+  if (workflowSettingsState.shouldValidateGraph || isInPublishFlow) {
     const { nodes, edges } = nodesState;
     const invocationNodes = nodes.filter(isInvocationNode);
     const batchNodes = invocationNodes.filter(isBatchNode);
@@ -314,6 +325,7 @@ const getReasonsWhyCannotEnqueueUpscaleTab = (arg: {
 
 const getReasonsWhyCannotEnqueueCanvasTab = (arg: {
   isConnected: boolean;
+  model: MainModelConfig | null | undefined;
   canvas: CanvasState;
   params: ParamsState;
   dynamicPrompts: DynamicPromptsState;
@@ -325,6 +337,7 @@ const getReasonsWhyCannotEnqueueCanvasTab = (arg: {
 }) => {
   const {
     isConnected,
+    model,
     canvas,
     params,
     dynamicPrompts,
@@ -334,7 +347,7 @@ const getReasonsWhyCannotEnqueueCanvasTab = (arg: {
     canvasIsCompositing,
     canvasIsSelectingObject,
   } = arg;
-  const { model, positivePrompt } = params;
+  const { positivePrompt } = params;
   const reasons: Reason[] = [];
 
   if (!isConnected) {

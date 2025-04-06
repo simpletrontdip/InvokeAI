@@ -26,10 +26,11 @@ import {
   workflowLibraryTagToggled,
   workflowLibraryViewChanged,
 } from 'features/nodes/store/workflowLibrarySlice';
+import { selectAllowPublishWorkflows } from 'features/system/store/configSlice';
 import { NewWorkflowButton } from 'features/workflowLibrary/components/NewWorkflowButton';
 import { UploadWorkflowButton } from 'features/workflowLibrary/components/UploadWorkflowButton';
 import { OverlayScrollbarsComponent } from 'overlayscrollbars-react';
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PiArrowCounterClockwiseBold, PiStarFill, PiUsersBold } from 'react-icons/pi';
 import { useDispatch } from 'react-redux';
@@ -39,20 +40,12 @@ export const WorkflowLibrarySideNav = () => {
   const { t } = useTranslation();
   const categoryOptions = useStore($workflowLibraryCategoriesOptions);
   const view = useAppSelector(selectWorkflowLibraryView);
-  const dispatch = useAppDispatch();
-  const selectedTags = useAppSelector(selectWorkflowLibrarySelectedTags);
-  const resetTags = useCallback(() => {
-    dispatch(workflowLibraryTagsReset());
-  }, [dispatch]);
-
-  useEffect(() => {}, [selectedTags, dispatch]);
+  const allowPublishWorkflows = useAppSelector(selectAllowPublishWorkflows);
 
   return (
     <Flex h="full" minH={0} overflow="hidden" flexDir="column" w={64} gap={0}>
-      <Flex flexDir="column" w="full" pb={2}>
+      <Flex flexDir="column" w="full" pb={2} gap={2}>
         <WorkflowLibraryViewButton view="recent">{t('workflows.recentlyOpened')}</WorkflowLibraryViewButton>
-      </Flex>
-      <Flex flexDir="column" w="full" pb={2}>
         <WorkflowLibraryViewButton view="yours">{t('workflows.yourWorkflows')}</WorkflowLibraryViewButton>
         {categoryOptions.includes('project') && (
           <Collapse in={view === 'yours' || view === 'shared' || view === 'private'}>
@@ -67,28 +60,12 @@ export const WorkflowLibrarySideNav = () => {
             </Flex>
           </Collapse>
         )}
+        {allowPublishWorkflows && (
+          <WorkflowLibraryViewButton view="published">{t('workflows.published')}</WorkflowLibraryViewButton>
+        )}
       </Flex>
       <Flex h="full" minH={0} overflow="hidden" flexDir="column">
-        {view === 'defaults' && selectedTags.length > 0 ? (
-          <ButtonGroup>
-            <WorkflowLibraryViewButton view="defaults" w="auto">
-              {t('workflows.browseWorkflows')}
-            </WorkflowLibraryViewButton>
-            <Tooltip label={t('workflows.deselectAll')}>
-              <IconButton
-                onClick={resetTags}
-                size="md"
-                aria-label={t('workflows.deselectAll')}
-                icon={<PiArrowCounterClockwiseBold size={12} />}
-                variant="ghost"
-                bg="base.700"
-                color="base.50"
-              />
-            </Tooltip>
-          </ButtonGroup>
-        ) : (
-          <WorkflowLibraryViewButton view="defaults">{t('workflows.browseWorkflows')}</WorkflowLibraryViewButton>
-        )}
+        <BrowseWorkflowsButton />
         <DefaultsViewCheckboxesCollapsible />
       </Flex>
       <Spacer />
@@ -97,6 +74,40 @@ export const WorkflowLibrarySideNav = () => {
     </Flex>
   );
 };
+
+const BrowseWorkflowsButton = memo(() => {
+  const { t } = useTranslation();
+  const view = useAppSelector(selectWorkflowLibraryView);
+  const dispatch = useAppDispatch();
+  const selectedTags = useAppSelector(selectWorkflowLibrarySelectedTags);
+  const resetTags = useCallback(() => {
+    dispatch(workflowLibraryTagsReset());
+  }, [dispatch]);
+
+  if (view === 'defaults' && selectedTags.length > 0) {
+    return (
+      <ButtonGroup>
+        <WorkflowLibraryViewButton view="defaults" w="auto">
+          {t('workflows.browseWorkflows')}
+        </WorkflowLibraryViewButton>
+        <Tooltip label={t('workflows.deselectAll')}>
+          <IconButton
+            onClick={resetTags}
+            size="md"
+            aria-label={t('workflows.deselectAll')}
+            icon={<PiArrowCounterClockwiseBold size={12} />}
+            variant="ghost"
+            bg="base.700"
+            color="base.50"
+          />
+        </Tooltip>
+      </ButtonGroup>
+    );
+  }
+
+  return <WorkflowLibraryViewButton view="defaults">{t('workflows.browseWorkflows')}</WorkflowLibraryViewButton>;
+});
+BrowseWorkflowsButton.displayName = 'BrowseWorkflowsButton';
 
 const overlayscrollbarsOptions = getOverlayScrollbarsParams({ visibility: 'visible' }).options;
 
@@ -237,18 +248,17 @@ const TagCheckbox = memo(({ tag, ...rest }: CheckboxProps & { tag: { label: stri
   }
 
   return (
-    <Checkbox isChecked={isChecked} onChange={onChange} {...rest} flexShrink={0}>
-      <Flex alignItems="center" gap={2}>
-        <Text>{`${tag.label} (${count})`}</Text>
-        {tag.recommended && (
-          <Tooltip label={t('workflows.recommended')}>
-            <Box>
-              <Icon as={PiStarFill} boxSize={4} fill="invokeYellow.500" />
-            </Box>
-          </Tooltip>
-        )}
-      </Flex>
-    </Checkbox>
+    <Flex alignItems="center" gap={2}>
+      <Checkbox isChecked={isChecked} onChange={onChange} {...rest} flexShrink={0} />
+      <Text>{`${tag.label} (${count})`}</Text>
+      {tag.recommended && (
+        <Tooltip label={t('workflows.recommended')}>
+          <Box as="span" lineHeight={0}>
+            <Icon as={PiStarFill} boxSize={4} fill="invokeYellow.500" />
+          </Box>
+        </Tooltip>
+      )}
+    </Flex>
   );
 });
 TagCheckbox.displayName = 'TagCheckbox';

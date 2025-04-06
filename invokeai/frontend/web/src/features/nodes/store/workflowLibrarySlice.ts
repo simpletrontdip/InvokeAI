@@ -5,7 +5,7 @@ import type { WorkflowCategory } from 'features/nodes/types/workflow';
 import { atom, computed } from 'nanostores';
 import type { SQLiteDirection, WorkflowRecordOrderBy } from 'services/api/types';
 
-export type WorkflowLibraryView = 'recent' | 'yours' | 'private' | 'shared' | 'defaults';
+export type WorkflowLibraryView = 'recent' | 'yours' | 'private' | 'shared' | 'defaults' | 'published';
 
 type WorkflowLibraryState = {
   view: WorkflowLibraryView;
@@ -100,7 +100,7 @@ export const DEFAULT_WORKFLOW_LIBRARY_TAG_CATEGORIES: WorkflowTagCategory[] = [
   },
   {
     categoryTKey: 'Common Tasks',
-    tags: [{ label: 'Upscaling' }, { label: 'Text to Image' }, { label: 'Image to Image', recommended: true }],
+    tags: [{ label: 'Upscaling' }, { label: 'Text to Image' }, { label: 'Image to Image' }],
   },
   {
     categoryTKey: 'Model Architecture',

@@ -20,7 +20,7 @@ export type UpdateBoardArg = paths['/api/v1/boards/{board_id}']['patch']['parame
 export type GraphAndWorkflowResponse =
   paths['/api/v1/images/i/{image_name}/workflow']['get']['responses']['200']['content']['application/json'];
 
-export type BatchConfig =
+export type EnqueueBatchArg =
   paths['/api/v1/queue/{queue_id}/enqueue_batch']['post']['requestBody']['content']['application/json'];
 
 export type InputFieldJSONSchemaExtra = S['InputFieldJSONSchemaExtra'];
@@ -251,6 +251,10 @@ export const isFluxMainModelModelConfig = (config: AnyModelConfig): config is Ma
   return config.type === 'main' && config.base === 'flux';
 };
 
+export const isFluxFillMainModelModelConfig = (config: AnyModelConfig): config is MainModelConfig => {
+  return config.type === 'main' && config.base === 'flux' && config.variant === 'inpaint';
+};
+
 export const isNonSDXLMainModelConfig = (config: AnyModelConfig): config is MainModelConfig => {
   return config.type === 'main' && (config.base === 'sd-1' || config.base === 'sd-2');
 };
@@ -350,3 +354,6 @@ export type UploadImageArg = {
    */
   isFirstUploadOfBatch?: boolean;
 };
+
+export type ImageUploadEntryResponse = S['ImageUploadEntry'];
+export type ImageUploadEntryRequest = paths['/api/v1/images/']['post']['requestBody']['content']['application/json'];
